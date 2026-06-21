@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Local JSON File Reader</title>
+		<style>
+body {
+	font-family: Arial, sans-serif;
+	text-align: center;
+}
+#result {
+	width: 80%;
+	margin: 20px auto;
+	padding: 10px;
+	border: 1px solid #ccc;
+	white-space: pre-wrap;
+}
+		</style>
+	</head>
+	<body>
+		<h1>Local JSON File Reader</h1>
+		<input type="file" id="fileInput">
+		<div id="result"></div>
+
+		<script>
+var mediaList = [];
+var url = "https://cf-hls-media.sndcdn.com/media/159660";
+var name = window.prompt("mp3");
+var mp3 = "";
+var jsonData;
+var init_mp4 = 0;
+function bubbleSort(arr) {
+	const len = arr.length;
+	for (let i = 0; i < len - 1; i++) {
+		for (let j = 0; j < len - 1 - i; j++) {
+			if (arr[j][1]-0 > arr[j + 1][1]-0) {
+				let temp = arr[j];
+				arr[j] = arr[j + 1];
+				arr[j + 1] = temp;
+			}
+		}
+	}
+	return arr;
+}
+document.getElementById('fileInput').addEventListener('change', function() {
+	//读文件
+	const file = this.files[0];
+	const reader = new FileReader();
+	//主体
+	reader.onload = function(e) {
+		//JSON转Object
+		const content = e.target.result;
+		jsonData = JSON.parse(content);
+		//抓音频文件
+		for (let i = 0; i < jsonData.log.entries.length; i++) {
+			if (jsonData.log.entries[i].request.url.indexOf("init.mp4") != -1) {
+				init_mp4 = i;
+				console.log(jsonData.log.entries[i].request.url);
+			}
+		}
+		for (let i = 0; i < jsonData.log.entries.length; i++) {
+			if (jsonData.log.entries[i].request.url.indexOf(name) != -1) {
+				mediaList.push([i,jsonData.log.entries[i].request.url.split("/")[6].substring(4,7)]);
+				console.log(jsonData.log.entries[i].request.url.split("/")[6].substring(4,7));
+			}
+		}
+		//排序
+		mediaList = bubbleSort(mediaList);
+		//添加init.mp4
+		mediaList.unshift([init_mp4,""]);
+		//合并
+		console.log(mediaList.length);
+		for (let temp = 0; temp < mediaList.length; temp++) {
+			try {
+				atob(jsonData.log.entries[mediaList[temp][0]].response.content.text);
+			} catch {
+				console.log(temp);
+			}
+			//mp3+=jsonData.log.entries[mediaList[0][0]].response.content.text;
+			//mp3+=jsonData.log.entries[mediaList[1][0]].response.content.text;
+		}
+		let totalLength = 0;
+		const binaryDataArray = [];
+		for (let i = 0; i < mediaList.length; i++) {
+		    const binaryData1 = atob(jsonData.log.entries[mediaList[i][0]].response.content.text);
+		    binaryDataArray.push(binaryData1);
+		    totalLength += binaryData1.length;
+		}
+		// 合并二进制数据
+		const mergedBinaryData = new Uint8Array(totalLength);
+		let offset = 0;
+		binaryDataArray.forEach(binaryData => {
+		    for (let i = 0; i < binaryData.length; i++) {
+		        mergedBinaryData[offset + i] = binaryData.charCodeAt(i);
+		    }
+		    offset += binaryData.length;
+		});
+		// 将合并后的二进制数据转换为 Uint8Array
+		const bytes = new Uint8Array(mergedBinaryData);
+		//部署下载链接（blob）
+        const blob = new Blob([bytes], { type: 'audio/mp3' });
+        const url2 = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.target = "_blank";
+		a.innerHTML = "下载原神"
+		a.href = url2;
+		a.download = 'test.mp3';
+		document.body.appendChild(a);
+		URL.revokeObjectURL(url);
+		console.log(mediaList);
+	};
+
+	reader.readAsText(file);
+});
+		</script>
+	</body>
+</html>
